@@ -1,0 +1,166 @@
+package com.stg.controller;
+
+import java.time.LocalDate;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.stg.model.Patient;
+
+import com.stg.service.PatientService;
+
+@RestController
+public class PatientController {
+	@Autowired
+	private PatientService patientService;
+	
+	@PostMapping(value = "createpatient")
+	public Patient createPatient(@RequestBody Patient patient) {
+		return patientService.createPatient(patient);
+	}
+
+	@GetMapping(value = "readByNameAndId")
+	public Patient readByPatientNameAndId(@RequestParam String patientName, @RequestParam int id) {
+		return patientService.readByPatientNameAndPatientId(patientName, id);
+	}
+
+	@GetMapping(value = "readByAdmittedDate")
+	public List<Patient> readByAdmittedDate(
+			@RequestParam("localDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate localDate) {
+		return patientService.readByPatientAdmittionDate(localDate);
+	}
+
+	@PutMapping(value = "updateNamewithId")
+	public Patient updatePatientByNameAndId(@RequestParam String patientName, @RequestParam int patientId) {
+
+		return patientService.updatePatient(patientName, patientId);
+	}
+
+	@DeleteMapping(value = "deletePatientbyid")
+	public String deletePatientbyid(@RequestParam int patientId) {
+
+		return patientService.deletePatientById(patientId);
+	}
+
+}
+
+
+-------------------------------------------------------------------------------------------------------------------
+
+package com.stg.service;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.stg.exception.PatientException;
+import com.stg.model.Patient;
+import com.stg.repository.PatientRepository;
+
+@Service
+public class PatientServiceImpl implements PatientService {
+	@Autowired
+	private PatientRepository patientRepository;
+
+	@Override
+	public Patient createPatient(Patient patient) throws PatientException {
+		return patientRepository.save(patient);
+	}
+
+	@Override
+	public Patient readByPatientNameAndPatientId(String patientName, int patientId) throws PatientException {
+		Patient patient = patientRepository.findByPatientNameAndPatientId(patientName, patientId);
+		if (patient == null) {
+			throw new PatientException("The Patient is not found with the given Id");
+		} else {
+			if (patient.getPatientName().equals(patientName)) {
+				return patient;
+			} else {
+				throw new PatientException("The Patient is not found with the given details");
+			}
+		}
+
+	}
+
+	@Override
+	public List<Patient> readByPatientAdmittionDate(LocalDate localDate) throws PatientException {
+
+		List<Patient> patients = patientRepository.findAllPatientsByAdmittedDate(localDate);
+
+		if (patients != null) {
+
+			return patients;
+		} else {
+			throw new PatientException("No patients admitted on that day");
+		}
+
+	}
+
+	@Override
+	public Patient updatePatient(String pName, int pId) throws PatientException {
+		Patient patientTemp = patientRepository.findById(pId).orElse(null);
+		if (patientTemp == null) {
+
+			throw new PatientException();
+		} else {
+			patientTemp.setPatientName(pName);
+			return patientRepository.save(patientTemp);
+		}
+
+	}
+
+	@Override
+	public String deletePatientById(int patientId) throws PatientException {
+		Patient patient = patientRepository.findById(patientId).orElse(null);
+
+		if (patient == null) {
+			throw new PatientException("Patient not found with the given id");
+
+		} else {
+			patientRepository.delete(patient);
+
+			return "patient deleted";
+		}
+
+	}
+
+}
+
+
+---------------------------------------------------
+
+package com.stg.repository;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import com.stg.model.Patient;
+
+@Repository
+public interface PatientRepository extends JpaRepository<Patient, Integer> {
+
+	public Patient findByPatientName(String name);
+
+	public Patient findByPatientNameAndPatientId(String name, int id);
+	
+	@Query(value="SELECT * FROM patient p WHERE p.admitted_date=?1", nativeQuery = true)
+	public List<Patient> findAllPatientsByAdmittedDate(LocalDate localDate);
+
+}
+
+
